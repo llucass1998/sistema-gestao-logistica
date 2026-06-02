@@ -1,0 +1,45 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma" // O Prisma 7 exige esse caminho
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Driver {
+  id        String     @id @default(uuid())
+  name      String
+  email     String     @unique
+  password  String
+  phone     String
+  deliveries Delivery[] 
+  createdAt DateTime   @default(now())
+}
+
+model Vehicle {
+  id           String     @id @default(uuid())
+  plate        String     @unique 
+  model        String     
+  capacity     Float      
+  isActive     Boolean    @default(true)
+  deliveries   Delivery[] 
+}
+
+model Delivery {
+  id              String   @id @default(uuid())
+  description     String   
+  pickupAddress   String   
+  deliveryAddress String   
+  price           Decimal  
+  status          String   @default("PENDING") 
+  proofUrl        String?  
+  driverId        String
+  driver          Driver   @relation(fields: [driverId], references: [id])
+  vehicleId       String
+  vehicle         Vehicle  @relation(fields: [vehicleId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
