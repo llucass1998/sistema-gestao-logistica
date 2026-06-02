@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma';
 
 export class DriverController {
+  
   async index(req: any, res: any) {
     try {
       const drivers = await prisma.driver.findMany();
@@ -27,19 +28,19 @@ export class DriverController {
     }
   }
 
+  // ==========================================
+  // CRIAR NOVO MOTORISTA
+  // ==========================================
   async create(req: any, res: any) {
     try {
-      // Adicionamos phone e password vindo do req.body
-      const { name, email, phone, password } = req.body;
+      const { name, email } = req.body;
       
+      if (!name || !email) {
+        return res.status(400).json({ error: 'Campos obrigatórios: name, email.' });
+      }
+
       const driver = await prisma.driver.create({
-        data: { 
-          name, 
-          email,
-          // Se o front-end não mandar, usamos esses valores padrão por enquanto:
-          phone: phone || '(00) 00000-0000', 
-          password: password || 'senha123' 
-        },
+        data: { name, email }as any,
       });
       
       return res.status(201).json(driver);
@@ -49,6 +50,9 @@ export class DriverController {
     }
   }
 
+  // ==========================================
+  // EDITAR MOTORISTA
+  // ==========================================
   async update(req: any, res: any) {
     try {
       const { id } = req.params;
@@ -56,16 +60,48 @@ export class DriverController {
 
       const driver = await prisma.driver.update({
         where: { id },
-        data: { name, email },
+        data: { 
+          ...(name != null && { name }),
+          ...(email != null && { email }),
+        },
       });
 
       return res.json(driver);
-    } catch (error) {
+    } catch (error: any) {
+      if (error.code === 'P2025') {
+        return res.status(404).json({ error: 'Motociclista não encontrado.' });
+      }
       console.error(error);
       return res.status(500).json({ error: 'Erro ao atualizar motociclista.' });
     }
   }
 
+  // ==========================================
+  // ATUALIZAR STATUS DO MOTORISTA
+  // ==========================================
+  async updateStatus(req: any, res: any) {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+
+      const driver = await prisma.driver.update({
+        where: { id },
+        data: { status },
+      });
+
+      return res.json(driver);
+    } catch (error: any) {
+      if (error.code === 'P2025') {
+        return res.status(404).json({ error: 'Motociclista não encontrado.' });
+      }
+      console.error(error);
+      return res.status(500).json({ error: 'Erro ao atualizar status do motociclista.' });
+    }
+  }
+
+  // ==========================================
+  // EXCLUIR MOTORISTA
+  // ==========================================
   async delete(req: any, res: any) {
     try {
       const { id } = req.params;
@@ -75,9 +111,12 @@ export class DriverController {
       });
 
       return res.status(204).send();
-    } catch (error) {
+    } catch (error: any) {
+      if (error.code === 'P2025') {
+        return res.status(404).json({ error: 'Motociclista não encontrado.' });
+      }
       console.error(error);
-      return res.status(500).json({ error: 'Erro ao deletar motociclista.' });
+      return res.status(400).json({ error: 'Erro ao deletar motociclista. Ele pode estar vinculado a uma entrega.' });
     }
   }
-}
+} // <--- Esta chave final fecha a classe DriverController

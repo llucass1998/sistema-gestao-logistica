@@ -1,31 +1,34 @@
 // prisma/schema.prisma
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma" // O Prisma 7 exige esse caminho
+  provider = "prisma-client-js" // Corrigido de "prisma-client" para "prisma-client-js"
+  output   = "../src/generated/prisma" 
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL") // Esta linha é obrigatória
 }
 
 model Driver {
-  id        String     @id @default(uuid())
-  name      String
-  email     String     @unique
-  password  String
-  phone     String
+  id         String     @id @default(uuid())
+  name       String
+  email      String     @unique
+  password   String
+  phone      String
   deliveries Delivery[] 
-  createdAt DateTime   @default(now())
+  createdAt  DateTime   @default(now())
+  status     String     @default("AVAILABLE")
 }
 
 model Vehicle {
-  id           String     @id @default(uuid())
-  plate        String     @unique 
-  model        String     
-  capacity     Float      
-  isActive     Boolean    @default(true)
-  deliveries   Delivery[] 
+  id         String     @id @default(uuid())
+  plate      String     @unique 
+  model      String     
+  capacity   Float      
+  isActive   Boolean    @default(true)
+  deliveries Delivery[] 
+  status     String     @default("AVAILABLE")
 }
 
 model Delivery {
@@ -34,7 +37,7 @@ model Delivery {
   pickupAddress   String   
   deliveryAddress String   
   price           Decimal  
-  status          String   @default("PENDING") 
+  status          String   @default("PENDING") // Status único mantido aqui
   proofUrl        String?  
   driverId        String
   driver          Driver   @relation(fields: [driverId], references: [id])

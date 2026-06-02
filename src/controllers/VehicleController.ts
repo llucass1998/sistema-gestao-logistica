@@ -46,6 +46,9 @@ export class VehicleController {
     }
   }
 
+  // ==========================================
+  // EDITAR VEÍCULO
+  // ==========================================
   async update(req: any, res: any) {
     try {
       const { id } = req.params;
@@ -63,10 +66,13 @@ export class VehicleController {
       return res.json(vehicle);
     } catch (error) {
       console.error(error);
-      return res.status(500).json({ error: 'Erro ao atualizar veículo.' });
+      return res.status(400).json({ error: 'Erro ao atualizar veículo.' });
     }
   }
 
+  // ==========================================
+  // EXCLUIR VEÍCULO
+  // ==========================================
   async delete(req: any, res: any) {
     try {
       const { id } = req.params;
@@ -78,7 +84,30 @@ export class VehicleController {
       return res.status(204).send();
     } catch (error) {
       console.error(error);
-      return res.status(500).json({ error: 'Erro ao deletar veículo. Pode estar em uso.' });
+      return res.status(400).json({ error: 'Não foi possível excluir o veículo. Ele pode estar vinculado a uma entrega.' });
+    }
+  } // <--- Fechamos a função delete aqui!
+
+  // ==========================================
+  // ATUALIZAR STATUS DO VEÍCULO (Fora da função delete)
+  // ==========================================
+  async updateStatus(req: any, res: any) {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+
+      const vehicle = await prisma.vehicle.update({
+        where: { id },
+        data: { status },
+      });
+
+      return res.json(vehicle);
+    } catch (error: any) {
+      if (error.code === 'P2025') {
+        return res.status(404).json({ error: 'Veículo não encontrado.' });
+      }
+      console.error(error);
+      return res.status(500).json({ error: 'Erro ao atualizar status do veículo.' });
     }
   }
 }

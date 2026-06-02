@@ -1,13 +1,12 @@
 import { prisma } from '../lib/prisma';
 
 export class DeliveryController {
+  
+  // LISTAR TODAS
   async index(req: any, res: any) {
     try {
       const deliveries = await prisma.delivery.findMany({
-        include: {
-          driver: true,
-          vehicle: true,
-        },
+        include: { driver: true, vehicle: true },
       });
       return res.json(deliveries);
     } catch (error) {
@@ -16,19 +15,15 @@ export class DeliveryController {
     }
   }
 
+  // BUSCAR UMA ÚNICA
   async show(req: any, res: any) {
     try {
       const { id } = req.params;
       const delivery = await prisma.delivery.findUnique({
         where: { id },
-        include: {
-          driver: true,
-          vehicle: true,
-        },
+        include: { driver: true, vehicle: true },
       });
-      if (!delivery) {
-        return res.status(404).json({ error: 'Entrega não encontrada.' });
-      }
+      if (!delivery) return res.status(404).json({ error: 'Entrega não encontrada.' });
       return res.json(delivery);
     } catch (error) {
       console.error(error);
@@ -36,76 +31,58 @@ export class DeliveryController {
     }
   }
 
+  // CRIAR
   async create(req: any, res: any) {
     try {
-      // Pegamos todos os campos que o banco de dados exige
-      const { 
-        description, 
-        pickupAddress, 
-        deliveryAddress, 
-        price, 
-        driverId, 
-        vehicleId 
-      } = req.body;
+      const { description, driverId, vehicleId } = req.body;
       
       const delivery = await prisma.delivery.create({
         data: { 
           description,
           status: 'PENDING',
-          // Valores padrão caso o front-end ainda não tenha os inputs:
-          pickupAddress: pickupAddress || 'Endereço Central LogiTrack',
-          deliveryAddress: deliveryAddress || 'Endereço do Cliente',
-          price: price ? Number(price) : 25.50,
-          
-          // O seu Prisma exige que a entrega seja criada JÁ COM motorista e veículo.
-          // Atenção: O Front-end TEM que mandar esses IDs agora, senão o Prisma recusa!
-          driverId: driverId,
-          vehicleId: vehicleId
-        },
-        include: {
-          driver: true,
-          vehicle: true,
-        },
+          driverId,
+          vehicleId
+        }as any,
+        include: { driver: true, vehicle: true },
       });
       
       return res.status(201).json(delivery);
     } catch (error) {
       console.error(error);
-      return res.status(500).json({ error: 'Erro ao criar entrega. Verifique se enviou DriverId e VehicleId.' });
+      return res.status(500).json({ error: 'Erro ao criar entrega. Verifique os IDs.' });
     }
   }
 
+  // EDITAR (Campos Gerais)
   async update(req: any, res: any) {
     try {
       const { id } = req.params;
-      const { description, status, driverId, vehicleId } = req.body;
+      const { description, driverId, vehicleId } = req.body;
 
       const delivery = await prisma.delivery.update({
         where: { id },
         data: {
-          ...(description && { description }),
-          ...(status && { status }),
-          ...(driverId && { driverId }),
-          ...(vehicleId && { vehicleId }),
+          ...(description != null && { description }),
+          ...(driverId != null && { driverId }),
+          ...(vehicleId != null && { vehicleId }),
         },
-        include: {
-          driver: true,
-          vehicle: true,
-        },
+        include: { driver: true, vehicle: true },
       });
 
       return res.json(delivery);
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      if (error.code === 'P2025') return res.status(404).json({ error: 'Entrega não encontrada.' });
       return res.status(500).json({ error: 'Erro ao atualizar entrega.' });
     }
   }
 
+  // MUDAR STATUS (O que o App do Motorista usa!)
   async updateStatus(req: any, res: any) {
     try {
       const { id } = req.params;
       const { status } = req.body;
 
+      // Validação do status
       if (!['PENDING', 'IN_TRANSIT', 'DELIVERED'].includes(status)) {
         return res.status(400).json({ error: 'Status inválido.' });
       }
@@ -113,30 +90,24 @@ export class DeliveryController {
       const delivery = await prisma.delivery.update({
         where: { id },
         data: { status },
-        include: {
-          driver: true,
-          vehicle: true,
-        },
+        include: { driver: true, vehicle: true },
       });
 
       return res.json(delivery);
-    } catch (error) {
-      console.error(error);
-      return res.status(500).json({ error: 'Erro ao atualizar status da entrega.' });
+    } catch (error: any) {
+      if (error.code === 'P2025') return res.status(404).json({ error: 'Entrega não encontrada.' });
+      return res.status(500).json({ error: 'Erro ao atualizar status.' });
     }
   }
 
+  // EXCLUIR
   async delete(req: any, res: any) {
     try {
       const { id } = req.params;
-
-      await prisma.delivery.delete({
-        where: { id },
-      });
-
+      await prisma.delivery.delete({ where: { id } });
       return res.status(204).send();
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      if (error.code === 'P2025') return res.status(404).json({ error: 'Entrega não encontrada.' });
       return res.status(500).json({ error: 'Erro ao deletar entrega.' });
     }
   }
