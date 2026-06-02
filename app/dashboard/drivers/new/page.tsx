@@ -1,91 +1,111 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import Link from 'next/link';
 
-interface Driver {
-  id: string;
-  name: string;
-  email: string;
-}
+export default function NewDriverPage() {
+  const router = useRouter();
+  const [isSaving, setIsSaving] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    status: 'AVAILABLE',
+  });
 
-export default function DriversPage() {
-  const [drivers, setDrivers] = useState<Driver[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function loadDrivers() {
-      try {
-        const response = await axios.get('http://localhost:3333/drivers');
-        setDrivers(response.data);
-      } catch (error) {
-        console.error('Erro ao buscar motoristas:', error);
-      } finally {
-        setLoading(false);
-      }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    try {
+      await axios.post('http://localhost:3333/drivers', formData);
+      router.push('/dashboard/drivers');
+    } catch (error) {
+      console.error('Erro ao criar motorista:', error);
+      alert('Erro ao cadastrar motorista. Verifique os dados e tente novamente.');
+    } finally {
+      setIsSaving(false);
     }
-    loadDrivers();
-  }, []);
+  };
+
+  const inputClass = "w-full h-[40px] px-3 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#185FA5] dark:focus:ring-blue-500 focus:border-transparent transition-colors";
+  const labelClass = "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1";
 
   return (
-    <div className="w-full">
-      {/* Cabeçalho Responsivo */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+    <div className="w-full flex flex-col gap-6">
+
+      {/* HEADER */}
+      <div className="bg-white dark:bg-gray-800 border border-[var(--color-border-secondary)] dark:border-gray-700 rounded-lg shadow-sm p-4 sm:p-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">Equipe de Motoristas</h1>
-          <p className="text-sm text-[var(--color-text-secondary)] mt-1">Gerencie os condutores da sua operação.</p>
+          <h1 className="text-xl font-semibold text-[var(--color-text-primary)] dark:text-white">Novo Motorista</h1>
+          <p className="text-sm text-[var(--color-text-secondary)] dark:text-gray-400 mt-1">Preencha os dados para cadastrar um novo motorista.</p>
         </div>
-        
-        <Link 
-          href="/dashboard/drivers/new"
-          className="w-full sm:w-auto h-[40px] px-4 bg-[#185FA5] hover:bg-[#0C447C] text-white text-sm font-medium rounded-md shadow-sm transition-colors flex items-center justify-center gap-2"
+        <Link
+          href="/dashboard/drivers"
+          className="h-[40px] px-4 rounded-md text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-2"
         >
-          <i className="ti ti-plus"></i>
-          Novo Motorista
+          <i className="ti ti-arrow-left"></i> Voltar
         </Link>
       </div>
 
-      {/* Caixa da Tabela */}
-      <div className="bg-white border border-[var(--color-border-secondary)] rounded-lg shadow-sm overflow-hidden w-full">
-        {/* O truque do scroll lateral no celular está nesta div abaixo: */}
-        <div className="overflow-x-auto w-full">
-          <table className="w-full text-left border-collapse min-w-[600px]">
-            <thead>
-              <tr className="bg-[var(--color-background-secondary)] border-b border-[var(--color-border-secondary)]">
-                <th className="px-6 py-4 text-[13px] font-semibold text-[var(--color-text-secondary)] whitespace-nowrap">Nome</th>
-                <th className="px-6 py-4 text-[13px] font-semibold text-[var(--color-text-secondary)] whitespace-nowrap">E-mail / Contato</th>
-                <th className="px-6 py-4 text-[13px] font-semibold text-[var(--color-text-secondary)] whitespace-nowrap">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--color-border-secondary)]">
-              
-              {loading && (
-                <tr>
-                  <td colSpan={3} className="px-6 py-8 text-center text-gray-500 text-sm">Carregando equipe...</td>
-                </tr>
-              )}
+      {/* FORMULÁRIO */}
+      <div className="bg-white dark:bg-gray-800 border border-[var(--color-border-secondary)] dark:border-gray-700 rounded-lg shadow-sm p-6">
+        <form onSubmit={handleSubmit} className="space-y-5 max-w-lg">
+          <div>
+            <label className={labelClass}>Nome <span className="text-red-500">*</span></label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={e => setFormData({ ...formData, name: e.target.value })}
+              placeholder="Nome completo do motorista"
+              className={inputClass}
+              required
+            />
+          </div>
 
-              {!loading && drivers.length === 0 && (
-                <tr>
-                  <td colSpan={3} className="px-6 py-8 text-center text-gray-500 text-sm">Nenhum motorista encontrado.</td>
-                </tr>
-              )}
+          <div>
+            <label className={labelClass}>E-mail <span className="text-red-500">*</span></label>
+            <input
+              type="email"
+              value={formData.email}
+              onChange={e => setFormData({ ...formData, email: e.target.value })}
+              placeholder="email@exemplo.com"
+              className={inputClass}
+              required
+            />
+          </div>
 
-              {!loading && drivers.map((driver) => (
-                <tr key={driver.id} className="hover:bg-[var(--color-background-secondary)]/50 transition-colors">
-                  <td className="px-6 py-4 text-[14px] font-medium text-[var(--color-text-primary)]">{driver.name}</td>
-                  <td className="px-6 py-4 text-[14px] text-[var(--color-text-secondary)]">{driver.email}</td>
-                  <td className="px-6 py-4">
-                    <span className="px-2.5 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium whitespace-nowrap">Disponível</span>
-                  </td>
-                </tr>
-              ))}
+          <div>
+            <label className={labelClass}>Status</label>
+            <select
+              value={formData.status}
+              onChange={e => setFormData({ ...formData, status: e.target.value })}
+              className={inputClass}
+            >
+              <option value="AVAILABLE">Disponível</option>
+              <option value="BUSY">Ocupado</option>
+              <option value="OFFLINE">Offline</option>
+            </select>
+          </div>
 
-            </tbody>
-          </table>
-        </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Link
+              href="/dashboard/drivers"
+              className="h-[40px] px-4 text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center"
+            >
+              Cancelar
+            </Link>
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="h-[40px] px-5 text-sm bg-[#185FA5] hover:bg-[#0C447C] dark:bg-blue-600 dark:hover:bg-blue-700 text-white rounded-md font-medium disabled:opacity-50 transition-colors"
+            >
+              {isSaving ? 'Cadastrando...' : 'Cadastrar motorista'}
+            </button>
+          </div>
+        </form>
       </div>
+
     </div>
   );
 }

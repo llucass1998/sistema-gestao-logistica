@@ -1,7 +1,12 @@
 @import url("https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css");
 @import "tailwindcss";
 
+/* 1. Ativa o dark mode manual */
+@custom-variant dark (&:where(.dark, .dark *));
 
+/* 2. OBRIGA o Tailwind a rastrear todas as pastas em busca de classes novas */
+@source "../";
+@source "./";
 :root {
   --color-background-primary: #ffffff;
   --color-background-secondary: #f3f4f6;
