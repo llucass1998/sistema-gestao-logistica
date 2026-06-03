@@ -3,20 +3,34 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import axios from 'axios';
+import { socket } from '../../socket';
 
 // Interface para sabermos o formato da entrega vindo do Back-end
 interface Delivery {
   id: string;
   description: string;
+  pickupAddress?: string;
+  deliveryAddress?: string;
   status: string;
   driverId?: string;
   vehicleId?: string;
+}
+
+const defaultDestination = '-22.8646,-43.3219';
+
+function getNavigationUrl(delivery: Delivery) {
+  const destination = delivery.deliveryAddress && delivery.deliveryAddress !== 'Destino nao informado'
+    ? encodeURIComponent(delivery.deliveryAddress)
+    : defaultDestination;
+
+  return `https://www.google.com/maps/dir/?api=1&destination=${destination}`;
 }
 
 export default function DriverMobileApp() {
   const [loading, setLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
   const [currentDelivery, setCurrentDelivery] = useState<Delivery | null>(null);
+  const [isSharingLocation, setIsSharingLocation] = useState(false);
 
   // 1. BUSCA A ENTREGA REAL DO BANCO DE DADOS
   useEffect(() => {
@@ -39,6 +53,45 @@ export default function DriverMobileApp() {
     }
     fetchDelivery();
   }, []);
+
+  useEffect(() => {
+    if (!currentDelivery || currentDelivery.status === 'DELIVERED') {
+      setIsSharingLocation(false);
+      return;
+    }
+
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setIsSharingLocation(false);
+      return;
+    }
+
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        setIsSharingLocation(true);
+        socket.emit('driver:location', {
+          deliveryId: currentDelivery.id,
+          driverId: currentDelivery.driverId,
+          vehicleId: currentDelivery.vehicleId,
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+      },
+      (error) => {
+        console.error('Erro ao compartilhar localizacao:', error);
+        setIsSharingLocation(false);
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 5000,
+        timeout: 10000,
+      }
+    );
+
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+      setIsSharingLocation(false);
+    };
+  }, [currentDelivery]);
 
   // 2. ATUALIZA O STATUS NO BANCO DE DADOS (DISPARA O WEBSOCKET)
   const handleUpdateStatus = async (newStatus: string) => {
@@ -123,8 +176,17 @@ export default function DriverMobileApp() {
               <div className="flex items-start gap-3 mt-1 bg-gray-50 p-3 rounded-lg border border-gray-100">
                 <i className="ti ti-map-pin text-red-500 text-xl mt-0.5"></i>
                 <p className="text-sm text-gray-600 font-medium">
-                  Endereço de destino simulado (Integrar com Google Maps)
+                  {currentDelivery.deliveryAddress || 'Destino nao informado'}
                 </p>
+              </div>
+
+              <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold ${
+                isSharingLocation 
+                  ? 'border-blue-100 bg-blue-50 text-blue-700' 
+                  : 'border-yellow-100 bg-yellow-50 text-yellow-700'
+              }`}>
+                <i className={`ti ${isSharingLocation ? 'ti-current-location' : 'ti-location-off'} text-base`}></i>
+                {isSharingLocation ? 'Localizacao em tempo real ativa' : 'Aguardando permissao do GPS'}
               </div>
 
               <hr className="border-gray-100 my-1" />
@@ -150,10 +212,15 @@ export default function DriverMobileApp() {
                   </div>
                 )}
                 
-                <button className="w-full h-12 bg-white text-[#185FA5] border border-gray-200 hover:bg-gray-50 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors">
+                <a
+                  href={getNavigationUrl(currentDelivery)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full h-12 bg-white text-[#185FA5] border border-gray-200 hover:bg-gray-50 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors"
+                >
                   <i className="ti ti-navigation text-lg"></i>
                   Abrir no Waze / Maps
-                </button>
+                </a>
               </div>
             </div>
           </>

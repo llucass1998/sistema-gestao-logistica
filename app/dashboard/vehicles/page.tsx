@@ -2,12 +2,21 @@
 
 import { FormEventHandler, useEffect, useState } from 'react';
 import axios from 'axios';
+import { socket } from '../../../socket';
 
 interface Vehicle {
   id: string;
   model: string;
   plate: string;
+  status: string;
 }
+
+const vehicleStatusOptions = [
+  { value: 'AVAILABLE', label: 'Disponível' },
+  { value: 'IN_ROUTE', label: 'Em rota' },
+  { value: 'MAINTENANCE', label: 'Manutenção' },
+  { value: 'INACTIVE', label: 'Inativo' },
+];
 
 export default function VehiclesPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -23,19 +32,24 @@ export default function VehiclesPage() {
   const [newCapacity, setNewCapacity] = useState('500');
   const [isCreating, setIsCreating] = useState(false);
 
- useEffect(() => {
-    async function loadVehicles() {
-      try {
-        const response = await axios.get('http://localhost:3333/vehicles');
-        setVehicles(response.data);
-      } catch (error) {
-        console.error('Erro ao buscar veículos:', error);
-      } finally {
-        setLoading(false);
-      }
+  async function loadVehicles() {
+    try {
+      const response = await axios.get('http://localhost:3333/vehicles');
+      setVehicles(response.data);
+    } catch (error) {
+      console.error('Erro ao buscar veículos:', error);
+    } finally {
+      setLoading(false);
     }
+  }
 
+  useEffect(() => {
     loadVehicles();
+    socket.on('dashboard:update', loadVehicles);
+
+    return () => {
+      socket.off('dashboard:update', loadVehicles);
+    };
   }, []);
 
   const openEditModal = () => {
@@ -137,6 +151,28 @@ export default function VehiclesPage() {
     }
   };
 
+  const handleUpdateStatus = async (vehicleId: string, status: string) => {
+    const previousVehicles = vehicles;
+    setVehicles((currentVehicles) =>
+      currentVehicles.map((vehicle) =>
+        vehicle.id === vehicleId ? { ...vehicle, status } : vehicle
+      )
+    );
+
+    try {
+      const response = await axios.patch(`http://localhost:3333/vehicles/${vehicleId}/status`, { status });
+      setVehicles((currentVehicles) =>
+        currentVehicles.map((vehicle) =>
+          vehicle.id === vehicleId ? response.data : vehicle
+        )
+      );
+    } catch (error) {
+      console.error('Erro ao atualizar status do veículo:', error);
+      setVehicles(previousVehicles);
+      alert('Erro ao atualizar status do veículo.');
+    }
+  };
+
   const toggleSelection = (id: string) => {
     if (selectedVehicleId === id) {
       setSelectedVehicleId(null);
@@ -149,7 +185,7 @@ export default function VehiclesPage() {
     <div className="w-full flex flex-col gap-6">
       
       {/* 1. CAIXA SUPERIOR (FERRAMENTAS) */}
-      <div className="bg-white border border-[var(--color-border-secondary)] rounded-lg shadow-sm p-4 sm:p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="bg-white dark:bg-gray-800 border border-[var(--color-border-secondary)] dark:border-gray-700 rounded-lg shadow-sm p-4 sm:p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-xl font-semibold text-[var(--color-text-primary)]">Frota de Veículos</h1>
           <p className="text-sm text-[var(--color-text-secondary)] mt-1">Gerencie os carros e as rotas disponíveis para você.</p>
@@ -173,8 +209,8 @@ export default function VehiclesPage() {
             disabled={!selectedVehicleId}
             className={`flex-1 sm:flex-none h-[40px] px-4 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 border
               ${selectedVehicleId 
-                ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 cursor-pointer' 
-                : 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed opacity-60'}`}
+                ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-600 cursor-pointer' 
+                : 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed opacity-60 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-600'}`}
           >
             <i className="ti ti-edit"></i>
             Editar
@@ -191,18 +227,18 @@ export default function VehiclesPage() {
       </div>
 
       {/* 2. CAIXA INFERIOR (TABELA) */}
-      <div className="bg-white border border-[var(--color-border-secondary)] rounded-lg shadow-sm overflow-hidden w-full">
+      <div className="bg-white dark:bg-gray-800 border border-[var(--color-border-secondary)] dark:border-gray-700 rounded-lg shadow-sm overflow-hidden w-full">
         <div className="overflow-x-auto w-full">
           <table className="w-full text-left border-collapse min-w-[600px]">
             <thead>
-              <tr className="bg-[var(--color-background-secondary)] border-b border-[var(--color-border-secondary)]">
+              <tr className="bg-[var(--color-background-secondary)] border-b border-[var(--color-border-secondary)] dark:border-gray-700">
                 <th className="w-12 px-6 py-4"></th>
                 <th className="px-6 py-4 text-[13px] font-semibold text-[var(--color-text-secondary)] whitespace-nowrap">Modelo</th>
                 <th className="px-6 py-4 text-[13px] font-semibold text-[var(--color-text-secondary)] whitespace-nowrap">Placa</th>
                 <th className="px-6 py-4 text-[13px] font-semibold text-[var(--color-text-secondary)] whitespace-nowrap">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[var(--color-border-secondary)]">
+            <tbody className="divide-y divide-[var(--color-border-secondary)] dark:divide-gray-700">
               
               {loading && (
                 <tr>
@@ -222,8 +258,8 @@ export default function VehiclesPage() {
                   onClick={() => toggleSelection(vehicle.id)}
                   className={`cursor-pointer transition-colors ${
                     selectedVehicleId === vehicle.id 
-                      ? 'bg-blue-50/60 hover:bg-blue-50/80' 
-                      : 'hover:bg-[var(--color-background-secondary)]/50'
+                      ? 'bg-blue-50/60 hover:bg-blue-50/80 dark:bg-blue-900/30 dark:hover:bg-blue-900/50' 
+                      : 'hover:bg-[var(--color-background-secondary)]/50 dark:hover:bg-gray-700/50'
                   }`}
                 >
                   <td className="px-6 py-4">
@@ -237,7 +273,16 @@ export default function VehiclesPage() {
                   <td className="px-6 py-4 text-[14px] font-medium text-[var(--color-text-primary)]">{vehicle.model}</td>
                   <td className="px-6 py-4 text-[14px] text-[var(--color-text-secondary)] uppercase">{vehicle.plate}</td>
                   <td className="px-6 py-4">
-                    <span className="px-2.5 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium whitespace-nowrap">Ativo</span>
+                    <select
+                      value={vehicle.status || 'AVAILABLE'}
+                      onClick={(event) => event.stopPropagation()}
+                      onChange={(event) => handleUpdateStatus(vehicle.id, event.target.value)}
+                      className="h-[34px] min-w-[130px] rounded-md border border-[var(--color-border-secondary)] bg-white px-2 text-xs font-medium text-[var(--color-text-primary)] outline-none transition-colors dark:border-gray-700 dark:bg-gray-700 dark:text-gray-100"
+                    >
+                      {vehicleStatusOptions.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
                   </td>
                 </tr>
               ))}
@@ -249,8 +294,8 @@ export default function VehiclesPage() {
 
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm transition-opacity">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden transform transition-all">
-            <div className="px-6 py-4 border-b border-[var(--color-border-secondary)] flex justify-between items-center bg-gray-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md overflow-hidden transform transition-all">
+            <div className="px-6 py-4 border-b border-[var(--color-border-secondary)] dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
               <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">Novo Veículo</h3>
               <button onClick={closeCreateModal} className="text-gray-400 hover:text-gray-600 transition-colors">
                 <i className="ti ti-x text-xl"></i>
@@ -266,7 +311,7 @@ export default function VehiclesPage() {
                     required
                     value={newModel}
                     onChange={(e) => setNewModel(e.target.value)}
-                    className="w-full h-[40px] px-3 border border-[var(--color-border-secondary)] rounded-md text-[14px] outline-none focus:border-[#185FA5] focus:ring-1 focus:ring-[#185FA5]"
+                    className="w-full h-[40px] px-3 border border-[var(--color-border-secondary)] rounded-md text-[14px] bg-white dark:bg-gray-700 text-[var(--color-text-primary)] outline-none focus:border-[#185FA5] focus:ring-1 focus:ring-[#185FA5]"
                   />
                 </div>
                 <div>
@@ -276,7 +321,7 @@ export default function VehiclesPage() {
                     required
                     value={newPlate}
                     onChange={(e) => setNewPlate(e.target.value)}
-                    className="w-full h-[40px] px-3 border border-[var(--color-border-secondary)] rounded-md text-[14px] outline-none focus:border-[#185FA5] focus:ring-1 focus:ring-[#185FA5] uppercase"
+                    className="w-full h-[40px] px-3 border border-[var(--color-border-secondary)] rounded-md text-[14px] bg-white dark:bg-gray-700 text-[var(--color-text-primary)] outline-none focus:border-[#185FA5] focus:ring-1 focus:ring-[#185FA5] uppercase"
                   />
                 </div>
                 <div>
@@ -287,7 +332,7 @@ export default function VehiclesPage() {
                     min={0}
                     value={newCapacity}
                     onChange={(e) => setNewCapacity(e.target.value)}
-                    className="w-full h-[40px] px-3 border border-[var(--color-border-secondary)] rounded-md text-[14px] outline-none focus:border-[#185FA5] focus:ring-1 focus:ring-[#185FA5]"
+                    className="w-full h-[40px] px-3 border border-[var(--color-border-secondary)] rounded-md text-[14px] bg-white dark:bg-gray-700 text-[var(--color-text-primary)] outline-none focus:border-[#185FA5] focus:ring-1 focus:ring-[#185FA5]"
                   />
                 </div>
               </div>
@@ -296,7 +341,7 @@ export default function VehiclesPage() {
                 <button
                   type="button"
                   onClick={closeCreateModal}
-                  className="h-[40px] px-4 rounded-md border border-[var(--color-border-secondary)] text-[14px] font-medium text-[var(--color-text-secondary)] hover:bg-gray-50 transition-colors"
+                  className="h-[40px] px-4 rounded-md border border-[var(--color-border-secondary)] text-[14px] font-medium text-[var(--color-text-secondary)] hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   Cancelar
                 </button>
@@ -315,8 +360,8 @@ export default function VehiclesPage() {
 
       {isEditModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm transition-opacity">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden transform transition-all">
-            <div className="px-6 py-4 border-b border-[var(--color-border-secondary)] flex justify-between items-center bg-gray-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md overflow-hidden transform transition-all">
+            <div className="px-6 py-4 border-b border-[var(--color-border-secondary)] dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
               <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">Editar Veículo</h3>
               <button onClick={() => setIsEditModalOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
                 <i className="ti ti-x text-xl"></i>
@@ -332,7 +377,7 @@ export default function VehiclesPage() {
                     required
                     value={editModel}
                     onChange={(e) => setEditModel(e.target.value)}
-                    className="w-full h-[40px] px-3 border border-[var(--color-border-secondary)] rounded-md text-[14px] outline-none focus:border-[#185FA5] focus:ring-1 focus:ring-[#185FA5]"
+                    className="w-full h-[40px] px-3 border border-[var(--color-border-secondary)] rounded-md text-[14px] bg-white dark:bg-gray-700 text-[var(--color-text-primary)] outline-none focus:border-[#185FA5] focus:ring-1 focus:ring-[#185FA5]"
                   />
                 </div>
 
@@ -343,7 +388,7 @@ export default function VehiclesPage() {
                     required
                     value={editPlate}
                     onChange={(e) => setEditPlate(e.target.value)}
-                    className="w-full h-[40px] px-3 border border-[var(--color-border-secondary)] rounded-md text-[14px] outline-none focus:border-[#185FA5] focus:ring-1 focus:ring-[#185FA5] uppercase"
+                    className="w-full h-[40px] px-3 border border-[var(--color-border-secondary)] rounded-md text-[14px] bg-white dark:bg-gray-700 text-[var(--color-text-primary)] outline-none focus:border-[#185FA5] focus:ring-1 focus:ring-[#185FA5] uppercase"
                   />
                 </div>
               </div>
@@ -352,7 +397,7 @@ export default function VehiclesPage() {
                 <button
                   type="button"
                   onClick={() => setIsEditModalOpen(false)}
-                  className="h-[40px] px-4 rounded-md border border-[var(--color-border-secondary)] text-[14px] font-medium text-[var(--color-text-secondary)] hover:bg-gray-50 transition-colors"
+                  className="h-[40px] px-4 rounded-md border border-[var(--color-border-secondary)] text-[14px] font-medium text-[var(--color-text-secondary)] hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   Cancelar
                 </button>

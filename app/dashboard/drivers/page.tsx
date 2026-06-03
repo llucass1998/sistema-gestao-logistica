@@ -2,12 +2,21 @@
 
 import { FormEventHandler, useEffect, useState } from 'react';
 import axios from 'axios';
+import { socket } from '../../../socket';
 
 interface Driver {
   id: string;
   name: string;
   email: string;
+  phone?: string;
+  status: string;
 }
+
+const driverStatusOptions = [
+  { value: 'AVAILABLE', label: 'Disponível' },
+  { value: 'BUSY', label: 'Ocupado' },
+  { value: 'OFFLINE', label: 'Offline' },
+];
 
 export default function DriversPage() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -24,20 +33,28 @@ export default function DriversPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
+  const [newPhone, setNewPhone] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
-  useEffect(() => {
-    async function loadDrivers() {
-      try {
-        const response = await axios.get('http://localhost:3333/drivers');
-        setDrivers(response.data);
-      } catch (error) {
-        console.error('Erro ao buscar motociclistas:', error);
-      } finally {
-        setLoading(false);
-      }
+  async function loadDrivers() {
+    try {
+      const response = await axios.get('http://localhost:3333/drivers');
+      setDrivers(response.data);
+    } catch (error) {
+      console.error('Erro ao buscar motociclistas:', error);
+    } finally {
+      setLoading(false);
     }
+  }
+
+  useEffect(() => {
     loadDrivers();
+    socket.on('dashboard:update', loadDrivers);
+
+    return () => {
+      socket.off('dashboard:update', loadDrivers);
+    };
   }, []);
 
   // ==========================================
@@ -57,6 +74,8 @@ export default function DriversPage() {
   const openCreateModal = () => {
     setNewName('');
     setNewEmail('');
+    setNewPhone('');
+    setNewPassword('');
     setIsCreateModalOpen(true);
   };
 
@@ -78,6 +97,9 @@ export default function DriversPage() {
       const response = await axios.post('http://localhost:3333/drivers', {
         name: newName,
         email: newEmail,
+        phone: newPhone,
+        password: newPassword,
+        status: 'AVAILABLE',
       });
 
       setDrivers((prev) => [...prev, response.data]);
@@ -143,6 +165,28 @@ export default function DriversPage() {
     }
   };
 
+  const handleUpdateStatus = async (driverId: string, status: string) => {
+    const previousDrivers = drivers;
+    setDrivers((currentDrivers) =>
+      currentDrivers.map((driver) =>
+        driver.id === driverId ? { ...driver, status } : driver
+      )
+    );
+
+    try {
+      const response = await axios.patch(`http://localhost:3333/drivers/${driverId}/status`, { status });
+      setDrivers((currentDrivers) =>
+        currentDrivers.map((driver) =>
+          driver.id === driverId ? response.data : driver
+        )
+      );
+    } catch (error) {
+      console.error('Erro ao atualizar status do motociclista:', error);
+      setDrivers(previousDrivers);
+      alert('Erro ao atualizar status do motociclista.');
+    }
+  };
+
   const toggleSelection = (id: string) => {
     if (selectedDriverId === id) {
       setSelectedDriverId(null);
@@ -155,7 +199,7 @@ export default function DriversPage() {
     <div className="w-full flex flex-col gap-6 relative">
       
       {/* 1. CAIXA SUPERIOR (FERRAMENTAS) */}
-      <div className="bg-white border border-[var(--color-border-secondary)] rounded-lg shadow-sm p-4 sm:p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="bg-white dark:bg-gray-800 border border-[var(--color-border-secondary)] dark:border-gray-700 rounded-lg shadow-sm p-4 sm:p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-xl font-semibold text-[var(--color-text-primary)]">Equipe de Motociclismo</h1>
           <p className="text-sm text-[var(--color-text-secondary)] mt-1">Gerencie os fatores que impulsionam sua operação.</p>
@@ -179,8 +223,8 @@ export default function DriversPage() {
             disabled={!selectedDriverId}
             className={`flex-1 sm:flex-none h-[40px] px-4 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 border
               ${selectedDriverId 
-                ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 cursor-pointer' 
-                : 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed opacity-60'}`}
+                ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-600 cursor-pointer' 
+                : 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed opacity-60 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-600'}`}
           >
             <i className="ti ti-edit"></i>
             Editar
@@ -197,25 +241,25 @@ export default function DriversPage() {
       </div>
 
       {/* 2. CAIXA INFERIOR (TABELA) */}
-      <div className="bg-white border border-[var(--color-border-secondary)] rounded-lg shadow-sm overflow-hidden w-full">
+      <div className="bg-white dark:bg-gray-800 border border-[var(--color-border-secondary)] dark:border-gray-700 rounded-lg shadow-sm overflow-hidden w-full">
         <div className="overflow-x-auto w-full">
           <table className="w-full text-left border-collapse min-w-[600px]">
             <thead>
-              <tr className="bg-[var(--color-background-secondary)] border-b border-[var(--color-border-secondary)]">
+              <tr className="bg-[var(--color-background-secondary)] border-b border-[var(--color-border-secondary)] dark:border-gray-700">
                 <th className="w-12 px-6 py-4"></th>
                 <th className="px-6 py-4 text-[13px] font-semibold text-[var(--color-text-secondary)] whitespace-nowrap">Nome</th>
                 <th className="px-6 py-4 text-[13px] font-semibold text-[var(--color-text-secondary)] whitespace-nowrap">E-mail / Contato</th>
                 <th className="px-6 py-4 text-[13px] font-semibold text-[var(--color-text-secondary)] whitespace-nowrap">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[var(--color-border-secondary)]">
+            <tbody className="divide-y divide-[var(--color-border-secondary)] dark:divide-gray-700">
               {loading && <tr><td colSpan={4} className="px-6 py-8 text-center text-gray-500 text-sm">Carregando equipe...</td></tr>}
               {!loading && drivers.length === 0 && <tr><td colSpan={4} className="px-6 py-8 text-center text-gray-500 text-sm">Nenhum motociclista cadastrado.</td></tr>}
               {!loading && drivers.map((driver) => (
                 <tr 
                   key={driver.id} 
                   onClick={() => toggleSelection(driver.id)}
-                  className={`cursor-pointer transition-colors ${selectedDriverId === driver.id ? 'bg-blue-50/60 hover:bg-blue-50/80' : 'hover:bg-[var(--color-background-secondary)]/50'}`}
+                  className={`cursor-pointer transition-colors ${selectedDriverId === driver.id ? 'bg-blue-50/60 hover:bg-blue-50/80 dark:bg-blue-900/30 dark:hover:bg-blue-900/50' : 'hover:bg-[var(--color-background-secondary)]/50 dark:hover:bg-gray-700/50'}`}
                 >
                   <td className="px-6 py-4">
                     <input type="radio" readOnly checked={selectedDriverId === driver.id} className="w-4 h-4 text-[#185FA5] border-gray-300 focus:ring-[#185FA5] cursor-pointer"/>
@@ -223,7 +267,16 @@ export default function DriversPage() {
                   <td className="px-6 py-4 text-[14px] font-medium text-[var(--color-text-primary)]">{driver.name}</td>
                   <td className="px-6 py-4 text-[14px] text-[var(--color-text-secondary)]">{driver.email}</td>
                   <td className="px-6 py-4">
-                    <span className="px-2.5 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium whitespace-nowrap">Disponível</span>
+                    <select
+                      value={driver.status || 'AVAILABLE'}
+                      onClick={(event) => event.stopPropagation()}
+                      onChange={(event) => handleUpdateStatus(driver.id, event.target.value)}
+                      className="h-[34px] min-w-[130px] rounded-md border border-[var(--color-border-secondary)] bg-white px-2 text-xs font-medium text-[var(--color-text-primary)] outline-none transition-colors dark:border-gray-700 dark:bg-gray-700 dark:text-gray-100"
+                    >
+                      {driverStatusOptions.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
                   </td>
                 </tr>
               ))}
@@ -237,8 +290,8 @@ export default function DriversPage() {
       {/* ======================================================== */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm transition-opacity">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden transform transition-all">
-            <div className="px-6 py-4 border-b border-[var(--color-border-secondary)] flex justify-between items-center bg-gray-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md overflow-hidden transform transition-all">
+            <div className="px-6 py-4 border-b border-[var(--color-border-secondary)] dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
               <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">Novo Motociclista</h3>
               <button onClick={closeCreateModal} className="text-gray-400 hover:text-gray-600 transition-colors">
                 <i className="ti ti-x text-xl"></i>
@@ -254,7 +307,7 @@ export default function DriversPage() {
                     required
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
-                    className="w-full h-[40px] px-3 border border-[var(--color-border-secondary)] rounded-md text-[14px] outline-none focus:border-[#185FA5] focus:ring-1 focus:ring-[#185FA5]"
+                    className="w-full h-[40px] px-3 border border-[var(--color-border-secondary)] rounded-md text-[14px] bg-white dark:bg-gray-700 text-[var(--color-text-primary)] outline-none focus:border-[#185FA5] focus:ring-1 focus:ring-[#185FA5]"
                   />
                 </div>
 
@@ -265,7 +318,27 @@ export default function DriversPage() {
                     required
                     value={newEmail}
                     onChange={(e) => setNewEmail(e.target.value)}
-                    className="w-full h-[40px] px-3 border border-[var(--color-border-secondary)] rounded-md text-[14px] outline-none focus:border-[#185FA5] focus:ring-1 focus:ring-[#185FA5]"
+                    className="w-full h-[40px] px-3 border border-[var(--color-border-secondary)] rounded-md text-[14px] bg-white dark:bg-gray-700 text-[var(--color-text-primary)] outline-none focus:border-[#185FA5] focus:ring-1 focus:ring-[#185FA5]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[13px] font-medium text-[var(--color-text-secondary)] mb-1.5">Telefone</label>
+                  <input
+                    type="tel"
+                    value={newPhone}
+                    onChange={(e) => setNewPhone(e.target.value)}
+                    className="w-full h-[40px] px-3 border border-[var(--color-border-secondary)] rounded-md text-[14px] bg-white dark:bg-gray-700 text-[var(--color-text-primary)] outline-none focus:border-[#185FA5] focus:ring-1 focus:ring-[#185FA5]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[13px] font-medium text-[var(--color-text-secondary)] mb-1.5">Senha</label>
+                  <input
+                    type="password"
+                    required
+                    minLength={6}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full h-[40px] px-3 border border-[var(--color-border-secondary)] rounded-md text-[14px] bg-white dark:bg-gray-700 text-[var(--color-text-primary)] outline-none focus:border-[#185FA5] focus:ring-1 focus:ring-[#185FA5]"
                   />
                 </div>
               </div>
@@ -274,7 +347,7 @@ export default function DriversPage() {
                 <button
                   type="button"
                   onClick={closeCreateModal}
-                  className="h-[40px] px-4 rounded-md border border-[var(--color-border-secondary)] text-[14px] font-medium text-[var(--color-text-secondary)] hover:bg-gray-50 transition-colors"
+                  className="h-[40px] px-4 rounded-md border border-[var(--color-border-secondary)] text-[14px] font-medium text-[var(--color-text-secondary)] hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   Cancelar
                 </button>
@@ -293,8 +366,8 @@ export default function DriversPage() {
 
       {isEditModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm transition-opacity">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden transform transition-all">
-            <div className="px-6 py-4 border-b border-[var(--color-border-secondary)] flex justify-between items-center bg-gray-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md overflow-hidden transform transition-all">
+            <div className="px-6 py-4 border-b border-[var(--color-border-secondary)] dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
               <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">Editar Motociclista</h3>
               <button onClick={closeEditModal} className="text-gray-400 hover:text-gray-600 transition-colors">
                 <i className="ti ti-x text-xl"></i>
@@ -310,7 +383,7 @@ export default function DriversPage() {
                     required
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
-                    className="w-full h-[40px] px-3 border border-[var(--color-border-secondary)] rounded-md text-[14px] outline-none focus:border-[#185FA5] focus:ring-1 focus:ring-[#185FA5]"
+                    className="w-full h-[40px] px-3 border border-[var(--color-border-secondary)] rounded-md text-[14px] bg-white dark:bg-gray-700 text-[var(--color-text-primary)] outline-none focus:border-[#185FA5] focus:ring-1 focus:ring-[#185FA5]"
                   />
                 </div>
 
@@ -321,7 +394,7 @@ export default function DriversPage() {
                     required
                     value={editEmail}
                     onChange={(e) => setEditEmail(e.target.value)}
-                    className="w-full h-[40px] px-3 border border-[var(--color-border-secondary)] rounded-md text-[14px] outline-none focus:border-[#185FA5] focus:ring-1 focus:ring-[#185FA5]"
+                    className="w-full h-[40px] px-3 border border-[var(--color-border-secondary)] rounded-md text-[14px] bg-white dark:bg-gray-700 text-[var(--color-text-primary)] outline-none focus:border-[#185FA5] focus:ring-1 focus:ring-[#185FA5]"
                   />
                 </div>
               </div>
@@ -330,7 +403,7 @@ export default function DriversPage() {
                 <button
                   type="button"
                   onClick={closeEditModal}
-                  className="h-[40px] px-4 rounded-md border border-[var(--color-border-secondary)] text-[14px] font-medium text-[var(--color-text-secondary)] hover:bg-gray-50 transition-colors"
+                  className="h-[40px] px-4 rounded-md border border-[var(--color-border-secondary)] text-[14px] font-medium text-[var(--color-text-secondary)] hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   Cancelar
                 </button>
