@@ -343,6 +343,24 @@ export default function DeliveriesPage() {
                     <option value="DELIVERED">Entregue</option>
                   </select>
                 </div>
+                <div>
+                  <label className={labelClass}>Motociclista</label>
+                  <select value={editDriverId} onChange={(e) => setEditDriverId(e.target.value)} className={inputClass} required>
+                    <option value="">Selecione um motociclista</option>
+                    {driversList.map((driver) => (
+                      <option key={driver.id} value={driver.id}>{driver.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass}>Veículo</label>
+                  <select value={editVehicleId} onChange={(e) => setEditVehicleId(e.target.value)} className={inputClass} required>
+                    <option value="">Selecione um veículo</option>
+                    {vehiclesList.map((vehicle) => (
+                      <option key={vehicle.id} value={vehicle.id}>{vehicle.model} ({vehicle.plate})</option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
                 <button type="button" onClick={closeEditModal} className="h-[38px] px-4 text-sm border rounded-md">Cancelar</button>
@@ -366,6 +384,24 @@ export default function DeliveriesPage() {
                 <div>
                   <label className={labelClass}>Descrição</label>
                   <input type="text" value={newDescription} onChange={(e) => setNewDescription(e.target.value)} className={inputClass} required />
+                </div>
+                <div>
+                  <label className={labelClass}>Motociclista</label>
+                  <select value={newDriverId} onChange={(e) => setNewDriverId(e.target.value)} className={inputClass} required>
+                    <option value="">Selecione um motociclista</option>
+                    {driversList.map((driver) => (
+                      <option key={driver.id} value={driver.id}>{driver.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass}>Veículo</label>
+                  <select value={newVehicleId} onChange={(e) => setNewVehicleId(e.target.value)} className={inputClass} required>
+                    <option value="">Selecione um veículo</option>
+                    {vehiclesList.map((vehicle) => (
+                      <option key={vehicle.id} value={vehicle.id}>{vehicle.model} ({vehicle.plate})</option>
+                    ))}
+                  </select>
                 </div>
               </div>
               <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">

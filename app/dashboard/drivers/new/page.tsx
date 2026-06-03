@@ -11,6 +11,8 @@ export default function NewDriverPage() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    phone: '',
+    password: '',
     status: 'AVAILABLE',
   });
 
@@ -72,6 +74,30 @@ export default function NewDriverPage() {
               placeholder="email@exemplo.com"
               className={inputClass}
               required
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>Telefone</label>
+            <input
+              type="tel"
+              value={formData.phone}
+              onChange={e => setFormData({ ...formData, phone: e.target.value })}
+              placeholder="(11) 99999-9999"
+              className={inputClass}
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>Senha <span className="text-red-500">*</span></label>
+            <input
+              type="password"
+              value={formData.password}
+              onChange={e => setFormData({ ...formData, password: e.target.value })}
+              placeholder="Mínimo 6 caracteres"
+              className={inputClass}
+              required
+              minLength={6}
             />
           </div>
 

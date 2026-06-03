@@ -8,7 +8,7 @@ const app = express();
 // O 'origin' deve ser a URL do seu Front-end (provavelmente localhost:3000)
 app.use(cors({
   origin: 'http://localhost:3000', 
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   credentials: true
 }));
 

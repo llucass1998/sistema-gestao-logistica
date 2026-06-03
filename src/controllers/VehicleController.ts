@@ -29,13 +29,18 @@ export class VehicleController {
 
   async create(req: any, res: any) {
     try {
-      const { model, plate, capacity } = req.body;
+      const { model, plate, capacity, status } = req.body;
+
+      if (!model || !plate) {
+        return res.status(400).json({ error: 'Campos obrigatórios: model, plate.' });
+      }
 
       const vehicle = await prisma.vehicle.create({
         data: {
           model,
           plate,
           capacity: capacity ? Number(capacity) : 500.0,
+          ...(status != null && { status }),
         },
       });
 
@@ -52,14 +57,15 @@ export class VehicleController {
   async update(req: any, res: any) {
     try {
       const { id } = req.params;
-      const { model, plate, capacity } = req.body;
+      const { model, plate, capacity, status } = req.body;
 
       const vehicle = await prisma.vehicle.update({
         where: { id },
         data: {
-          model,
-          plate,
-          ...(capacity && { capacity: Number(capacity) }),
+          ...(model != null && { model }),
+          ...(plate != null && { plate }),
+          ...(capacity != null && { capacity: Number(capacity) }),
+          ...(status != null && { status }),
         },
       });
 

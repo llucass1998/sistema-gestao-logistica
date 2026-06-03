@@ -46,13 +46,13 @@ export default function DriverMobileApp() {
     
     setLoading(true);
     try {
-      // Enviamos todos os dados da entrega de volta, mudando apenas o status
-      await axios.put(`http://localhost:3333/deliveries/${currentDelivery.id}`, {
-        description: currentDelivery.description,
-        driverId: currentDelivery.driverId || null,
-        vehicleId: currentDelivery.vehicleId || null,
-        status: newStatus 
-      });
+      const token = localStorage.getItem('logitrack_token');
+
+      await axios.patch(
+        `http://localhost:3333/deliveries/${currentDelivery.id}/status`,
+        { status: newStatus },
+        token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
+      );
       
       setCurrentDelivery({ ...currentDelivery, status: newStatus });
       // Opcional: Tocar um som ou vibrar o celular aqui

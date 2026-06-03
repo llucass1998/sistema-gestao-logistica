@@ -1,3 +1,4 @@
+import bcrypt from 'bcrypt';
 import { prisma } from '../lib/prisma';
 
 export class DriverController {
@@ -33,17 +34,27 @@ export class DriverController {
   // ==========================================
   async create(req: any, res: any) {
     try {
-      const { name, email } = req.body;
+      const { name, email, password, phone, status } = req.body;
       
-      if (!name || !email) {
-        return res.status(400).json({ error: 'Campos obrigatórios: name, email.' });
+      if (!name || !email || !password) {
+        return res.status(400).json({ error: 'Campos obrigatórios: name, email, password.' });
       }
 
+      const hashedPassword = await bcrypt.hash(password, 10);
+
       const driver = await prisma.driver.create({
-        data: { name, email }as any,
+        data: {
+          name,
+          email,
+          password: hashedPassword,
+          phone: phone ?? '',
+          ...(status != null && { status }),
+        },
       });
+
+      const { password: _, ...driverWithoutPassword } = driver;
       
-      return res.status(201).json(driver);
+      return res.status(201).json(driverWithoutPassword);
     } catch (error) {
       console.error(error);
       return res.status(500).json({ error: 'Erro ao cadastrar motociclista.' });
@@ -56,13 +67,15 @@ export class DriverController {
   async update(req: any, res: any) {
     try {
       const { id } = req.params;
-      const { name, email } = req.body;
+      const { name, email, phone, status } = req.body;
 
       const driver = await prisma.driver.update({
         where: { id },
         data: { 
           ...(name != null && { name }),
           ...(email != null && { email }),
+          ...(phone != null && { phone }),
+          ...(status != null && { status }),
         },
       });
 

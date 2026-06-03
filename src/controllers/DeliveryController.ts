@@ -1,5 +1,7 @@
 import { prisma } from '../lib/prisma';
 
+const deliveryStatuses = ['PENDING', 'IN_TRANSIT', 'DELIVERED'];
+
 export class DeliveryController {
   
   // LISTAR TODAS
@@ -34,15 +36,29 @@ export class DeliveryController {
   // CRIAR
   async create(req: any, res: any) {
     try {
-      const { description, driverId, vehicleId } = req.body;
+      const {
+        description,
+        pickupAddress,
+        deliveryAddress,
+        price,
+        driverId,
+        vehicleId,
+      } = req.body;
+
+      if (!description || !driverId || !vehicleId) {
+        return res.status(400).json({ error: 'Campos obrigatorios: description, driverId, vehicleId.' });
+      }
       
       const delivery = await prisma.delivery.create({
         data: { 
           description,
+          pickupAddress: pickupAddress ?? 'Origem nao informada',
+          deliveryAddress: deliveryAddress ?? 'Destino nao informado',
+          price: price != null ? Number(price) : 0,
           status: 'PENDING',
           driverId,
-          vehicleId
-        }as any,
+          vehicleId,
+        },
         include: { driver: true, vehicle: true },
       });
       
@@ -57,12 +73,20 @@ export class DeliveryController {
   async update(req: any, res: any) {
     try {
       const { id } = req.params;
-      const { description, driverId, vehicleId } = req.body;
+      const { description, pickupAddress, deliveryAddress, price, status, driverId, vehicleId } = req.body;
+
+      if (status != null && !deliveryStatuses.includes(status)) {
+        return res.status(400).json({ error: 'Status invalido.' });
+      }
 
       const delivery = await prisma.delivery.update({
         where: { id },
         data: {
           ...(description != null && { description }),
+          ...(pickupAddress != null && { pickupAddress }),
+          ...(deliveryAddress != null && { deliveryAddress }),
+          ...(price != null && { price: Number(price) }),
+          ...(status != null && { status }),
           ...(driverId != null && { driverId }),
           ...(vehicleId != null && { vehicleId }),
         },
@@ -83,8 +107,8 @@ export class DeliveryController {
       const { status } = req.body;
 
       // Validação do status
-      if (!['PENDING', 'IN_TRANSIT', 'DELIVERED'].includes(status)) {
-        return res.status(400).json({ error: 'Status inválido.' });
+      if (!deliveryStatuses.includes(status)) {
+        return res.status(400).json({ error: 'Status invalido.' });
       }
 
       const delivery = await prisma.delivery.update({
