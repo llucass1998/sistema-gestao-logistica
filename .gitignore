@@ -27,9 +27,16 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+.codex-run/
 
 # env files
-.env*
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# generated files
+/src/generated/prisma/
 
 # vercel
 .vercel
